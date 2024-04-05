@@ -142,6 +142,8 @@ file_size :: proc() {
 	s, err = os2.file_size(f)
 	assume_ok(err)
 	assert(s == 128)
+
+	assume_ok(os2.remove("file512.txt"))
 }
 
 _create_write :: proc(name, contents: string) -> (f: ^os2.File) {
