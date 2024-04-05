@@ -3,29 +3,15 @@ package os2test
 import "core:time"
 import "core:os/os2"
 
-basic_file_write :: proc() {
-	f := _file_create_write("basic.txt", "hello os2")
+file_basic_write :: proc() {
+	f := _create_write("basic.txt", "hello os2")
 	assume_ok(os2.close(f))
 	assume_ok(os2.remove("basic.txt"))
 }
 
-no_exist_file_err :: proc() {
-	f, err := os2.open("file-that-does-not-exist.txt")
-	assert(err != nil)
-	assert(f == nil)
-	os2.print_error(err, "file-that-does-not-exist.txt")
-}
-
-double_close_err :: proc() {
-	f := _file_create_write("double_close.txt", "close")
-	assume_ok(os2.close(f))
-	assert(os2.close(f) != nil)
-	assume_ok(os2.remove("double_close.txt"))
-}
-
-read_random :: proc() {
+file_read_random :: proc() {
 	s := "01234567890abcdef"
-	f := _file_create_write("random.txt", s)
+	f := _create_write("random.txt", s)
 	assume_ok(os2.close(f))
 
 	err: os2.Error
@@ -61,12 +47,26 @@ read_random :: proc() {
 	assume_ok(os2.remove("random.txt"))
 }
 
-symlinks :: proc() {
+file_no_exist_err :: proc() {
+	f, err := os2.open("file-that-does-not-exist.txt")
+	assert(err != nil)
+	assert(f == nil)
+	os2.print_error(err, "file-that-does-not-exist.txt")
+}
+
+file_double_close_err :: proc() {
+	f := _create_write("double_close.txt", "close")
+	assume_ok(os2.close(f))
+	assert(os2.close(f) != nil)
+	assume_ok(os2.remove("double_close.txt"))
+}
+
+file_symlinks :: proc() {
 	if os2.exists("link.txt") { assume_ok(os2.remove("link.txt")) }
 	if os2.exists("target.txt") { assume_ok(os2.remove("target.txt")) }
 
 	s := "hello"
-	f := _file_create_write("target.txt", s)
+	f := _create_write("target.txt", s)
 	assume_ok(os2.close(f))
 	assume_ok(os2.symlink("target.txt", "link.txt"))
 	
@@ -90,9 +90,8 @@ symlinks :: proc() {
 	assume_ok(os2.remove("target.txt"))
 }
 
-permissions :: proc() {
-	s := "hello"
-	f := _file_create_write("perm.txt", s)
+file_permissions :: proc() {
+	f := _create_write("perm.txt", "hello")
 
 	assume_ok(os2.close(f))
 	assume_ok(os2.chmod("perm.txt", 0o444)) // read only
@@ -110,9 +109,8 @@ permissions :: proc() {
 }
 
 file_times :: proc() {
-	s := "hello"
-	f0 := _file_create_write("time0.txt", s)
-	f1 := _file_create_write("time1.txt", s)
+	f0 := _create_write("time0.txt", "hello")
+	f1 := _create_write("time1.txt", "hi")
 
 	assume_ok(os2.close(f0))
 	assume_ok(os2.chtimes("time0.txt", time.Time{0}, time.Time{0}))
@@ -131,16 +129,31 @@ file_times :: proc() {
 	assume_ok(os2.remove("time1.txt"))
 }
 
-_file_create_write :: proc(name, contents: string) -> (f: ^os2.File) {
+file_size :: proc() {
+	blk: [512]u8
+	f := _create_write("file512.txt", string(blk[:]))
+	s, err := os2.file_size(f)
+	assume_ok(err)
+	assert(s == size_of(blk))
+
+	assume_ok(os2.sync(f))
+
+	assume_ok(os2.truncate(f, 128))
+	s, err = os2.file_size(f)
+	assume_ok(err)
+	assert(s == 128)
+}
+
+_create_write :: proc(name, contents: string) -> (f: ^os2.File) {
 	err: os2.Error
 	f, err = os2.create(name)
-	//f, err = os2.open(name, {.Read, .Write, .Create, .Trunc })
 	assume_ok(err)
+
 	n: int
 	n, err = os2.write(f, transmute([]u8)contents)
 	assume_ok(err)
 	assert(n == len(contents))
+
+	assume_ok(os2.flush(f))  // really not necessary...
 	return
 }
-
-

@@ -8,13 +8,14 @@ main :: proc() {
 
 	context.allocator = os2.heap_allocator()
 
-	basic_file_write()
-	read_random()
-	no_exist_file_err()
-	double_close_err()
-	symlinks()
-	permissions()
+	file_basic_write()
+	file_read_random()
+	file_no_exist_err()
+	file_double_close_err()
+	file_symlinks()
+	file_permissions()
 	file_times()
+	file_size()
 
 	fmt.println("tests pass !!")
 }
