@@ -28,7 +28,7 @@ file_read_random :: proc() {
 	// using read_at
 	for i := 1; i < len(s); i += 1 {
 		sub := s[i:]
-		n, err = os2.read_at(f, buf[:], i64(i))
+		n, err := os2.read_at(f, buf[:], i64(i))
 		assume_ok(err)
 		assert(n == len(sub))
 		assert(string(buf[:n]) == sub)
@@ -38,7 +38,7 @@ file_read_random :: proc() {
 	for i := 1; i < len(s); i += 1 {
 		sub := s[i:]
 		os2.seek(f, i64(i), .Start)
-		n, err = os2.read(f, buf[:])
+		n, err := os2.read(f, buf[:])
 		assume_ok(err)
 		assert(n == len(sub))
 		assert(string(buf[:n]) == sub)
@@ -51,7 +51,7 @@ file_no_exist_err :: proc() {
 	f, err := os2.open("file-that-does-not-exist.txt")
 	assert(err != nil)
 	assert(f == nil)
-	os2.print_error(err, "file-that-does-not-exist.txt")
+	expect_error(err, "file-that-does-not-exist.txt")
 }
 
 file_double_close_err :: proc() {
@@ -61,7 +61,8 @@ file_double_close_err :: proc() {
 	assume_ok(os2.remove("double_close.txt"))
 }
 
-file_symlinks :: proc() {
+file_links_and_names :: proc() {
+	if os2.exists("new.txt") { assume_ok(os2.remove("new.txt")) }
 	if os2.exists("link.txt") { assume_ok(os2.remove("link.txt")) }
 	if os2.exists("target.txt") { assume_ok(os2.remove("target.txt")) }
 
@@ -86,8 +87,23 @@ file_symlinks :: proc() {
 	assume_ok(err)
 	assert(link_name == "target.txt")
 
-	assume_ok(os2.remove("link.txt"))
+	assume_ok(os2.rename("target.txt", "new.txt"))
+	link_name, err = os2.read_link("link.txt", context.allocator)
+	assume_ok(err)
+	assert(link_name == "target.txt")
+
+	f, err = os2.open(link_name)
+	expect_error(err, "(broken) link.txt")
+
+	/* restore access via hard link and verify */
+	assume_ok(os2.link("new.txt", "target.txt"))
+	f, err = os2.open(link_name)
+	assume_ok(err)
+	verify_contents(f, s)
+
 	assume_ok(os2.remove("target.txt"))
+	assume_ok(os2.remove("link.txt"))
+	assume_ok(os2.remove("new.txt"))
 }
 
 file_permissions :: proc() {
