@@ -4,6 +4,8 @@ import "core:fmt"
 import "core:os/os2"
 
 main :: proc() {
+	fmt.println(os2.args)
+
 	fmt.println("running tests...")
 
 	context.allocator = os2.heap_allocator()
@@ -16,8 +18,11 @@ main :: proc() {
 	file_times()
 	file_size()
 	file_links_and_names()
+	paths()
 
-	path_test()
+	env_basic()
+	process_env()
+	process_waits() // do last...
 
 	fmt.println("tests pass !!")
 }

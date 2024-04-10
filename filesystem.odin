@@ -164,7 +164,7 @@ file_size :: proc() {
 	assume_ok(os2.remove("file512.txt"))
 }
 
-path_test :: proc() {
+paths :: proc() {
 	_make_dirs()
 	_change_dirs()
 	_remove_dirs()
