@@ -37,9 +37,9 @@ assume_ok :: proc(err: os2.Error, loc := #caller_location) {
 
 
 expect_error :: proc(err: os2.Error, msg: string = "", loc := #caller_location) {
-	assert(err != nil, "", loc)
-	s := "EXECTED ERROR: "
+	s := "Expecting Error: "
 	os2.write(os2.stdout, transmute([]u8)(s))
+	assert(err != nil, "", loc)
 	os2.print_error(err, msg)
 }
 
