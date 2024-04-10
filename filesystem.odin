@@ -2,16 +2,17 @@ package os2test
 
 import "core:time"
 import "core:os/os2"
+import "core:strings"
 
 file_basic_write :: proc() {
-	f := _create_write("basic.txt", "hello os2")
+	f := create_write("basic.txt", "hello os2")
 	assume_ok(os2.close(f))
 	assume_ok(os2.remove("basic.txt"))
 }
 
 file_read_random :: proc() {
 	s := "01234567890abcdef"
-	f := _create_write("random.txt", s)
+	f := create_write("random.txt", s)
 	assume_ok(os2.close(f))
 
 	err: os2.Error
@@ -55,7 +56,7 @@ file_no_exist_err :: proc() {
 }
 
 file_double_close_err :: proc() {
-	f := _create_write("double_close.txt", "close")
+	f := create_write("double_close.txt", "close")
 	assume_ok(os2.close(f))
 	assert(os2.close(f) != nil)
 	assume_ok(os2.remove("double_close.txt"))
@@ -67,7 +68,7 @@ file_links_and_names :: proc() {
 	if os2.exists("target.txt") { assume_ok(os2.remove("target.txt")) }
 
 	s := "hello"
-	f := _create_write("target.txt", s)
+	f := create_write("target.txt", s)
 	assume_ok(os2.close(f))
 	assume_ok(os2.symlink("target.txt", "link.txt"))
 	
@@ -107,7 +108,7 @@ file_links_and_names :: proc() {
 }
 
 file_permissions :: proc() {
-	f := _create_write("perm.txt", "hello")
+	f := create_write("perm.txt", "hello")
 
 	assume_ok(os2.close(f))
 	assume_ok(os2.chmod("perm.txt", 0o444)) // read only
@@ -125,8 +126,8 @@ file_permissions :: proc() {
 }
 
 file_times :: proc() {
-	f0 := _create_write("time0.txt", "hello")
-	f1 := _create_write("time1.txt", "hi")
+	f0 := create_write("time0.txt", "hello")
+	f1 := create_write("time1.txt", "hi")
 
 	assume_ok(os2.close(f0))
 	assume_ok(os2.chtimes("time0.txt", time.Time{0}, time.Time{0}))
@@ -136,6 +137,7 @@ file_times :: proc() {
 	assume_ok(err0)
 	info1, err1 := os2.fstat(f1, context.allocator)
 	assume_ok(err1)
+	assert(!info0.is_directory && !info1.is_directory)
 
 	assert(info0.modification_time == info1.modification_time)
 	assert(info0.access_time == info1.access_time)
@@ -147,7 +149,7 @@ file_times :: proc() {
 
 file_size :: proc() {
 	blk: [512]u8
-	f := _create_write("file512.txt", string(blk[:]))
+	f := create_write("file512.txt", string(blk[:]))
 	s, err := os2.file_size(f)
 	assume_ok(err)
 	assert(s == size_of(blk))
@@ -162,16 +164,77 @@ file_size :: proc() {
 	assume_ok(os2.remove("file512.txt"))
 }
 
-_create_write :: proc(name, contents: string) -> (f: ^os2.File) {
-	err: os2.Error
-	f, err = os2.create(name)
-	assume_ok(err)
+path_test :: proc() {
+	_make_dirs()
+	_change_dirs()
+	_remove_dirs()
+}
 
-	n: int
-	n, err = os2.write(f, transmute([]u8)contents)
-	assume_ok(err)
-	assert(n == len(contents))
+_make_dirs :: proc() {
+	if os2.exists("dir1") {
+		assume_ok(os2.remove_all("dir1"))
+	}
+	if os2.exists("dir2") {
+		assume_ok(os2.remove_all("dir2"))
+	}
 
-	assume_ok(os2.flush(f))  // really not necessary...
-	return
+	assume_ok(os2.make_directory("dir1", 0o775))
+	assume_ok(os2.make_directory_all("dir2/sub1/", 0o775))
+
+	/* directories are writable... */
+	f := create_write("dir1/test.txt", "hello")
+	os2.close(f)
+	f = create_write("dir2/sub1/test.txt", "hello")
+	os2.close(f)
+
+	err := os2.make_directory("dir-no-exist/sub1", 0o775)
+	expect_error(err, "dir-no-exist")
+}
+
+_change_dirs :: proc() {
+	base_dir, err := os2.get_working_directory()
+	assume_ok(err)
+	defer delete(base_dir)
+
+	/* access via relative path */
+	assume_ok(os2.set_working_directory("dir1"))
+
+	dir1: string
+	dir1, err = os2.get_working_directory()
+	assume_ok(err)
+	defer delete(dir1)
+	assert(dir1 != base_dir)
+
+	/* access via full path */
+	concat: [2]string = { base_dir, "/dir2/sub1" }
+	fullpath, mem_err := strings.concatenate(concat[:])
+	assert(mem_err == nil)
+
+	assume_ok(os2.set_working_directory(fullpath))
+
+	dir2: string
+	dir2, err = os2.get_working_directory()
+	assume_ok(err)
+	defer delete(dir2)
+	assert(dir2 != base_dir)
+	assert(dir2 != dir1)
+
+	/* back to original directory if all went well. */
+	assume_ok(os2.set_working_directory("../../"))
+	final_dir: string
+	final_dir, err = os2.get_working_directory()
+	assume_ok(err)
+	defer delete(final_dir)
+	assert(final_dir == base_dir)
+}
+
+_remove_dirs :: proc() {
+	assert(os2.is_directory("dir1"))
+	assert(os2.is_directory("dir2"))
+
+	assume_ok(os2.remove_all("dir1"))
+	assume_ok(os2.remove_all("dir2"))
+
+	assert(!os2.is_directory("dir1"))
+	assert(!os2.is_directory("dir2"))
 }

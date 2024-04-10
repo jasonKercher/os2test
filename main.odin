@@ -17,6 +17,46 @@ main :: proc() {
 	file_size()
 	file_links_and_names()
 
+	path_test()
+
 	fmt.println("tests pass !!")
 }
 
+assume_ok :: proc(err: os2.Error, loc := #caller_location) {
+	if err == nil {
+		return
+	}
+	os2.print_error(err, "unexpected error")
+	panic("test failed", loc)
+}
+
+
+expect_error :: proc(err: os2.Error, msg: string = "", loc := #caller_location) {
+	assert(err != nil, "", loc)
+	s := "EXECTED ERROR: "
+	os2.write(os2.stdout, transmute([]u8)(s))
+	os2.print_error(err, msg)
+}
+
+verify_contents :: proc(file: ^os2.File, expected: string, loc := #caller_location) {
+	// full read
+	contents := make([]u8, len(expected) + 32)
+	defer delete(contents)
+	n, err := os2.read(file, contents[:])
+	assume_ok(err, loc)
+	assert(string(contents[:n]) == expected, loc = loc)
+}
+
+create_write :: proc(name, contents: string) -> (f: ^os2.File) {
+	err: os2.Error
+	f, err = os2.create(name)
+	assume_ok(err)
+
+	n: int
+	n, err = os2.write(f, transmute([]u8)contents)
+	assume_ok(err)
+	assert(n == len(contents))
+
+	assume_ok(os2.flush(f))  // really not necessary...
+	return
+}
