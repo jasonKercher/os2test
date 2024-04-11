@@ -54,7 +54,7 @@ verify_contents :: proc(file: ^os2.File, expected: string, loc := #caller_locati
 
 create_write :: proc(name, contents: string) -> (f: ^os2.File) {
 	err: os2.Error
-	f, err = os2.create(name)
+	f, err = os2.open(name, {.Create, .Write, .Trunc}, 0o664)
 	assume_ok(err)
 
 	n: int
