@@ -22,6 +22,7 @@ main :: proc() {
 
 	env_basic()
 	process_env()
+	process_signals()
 	process_waits() // do last...
 
 	fmt.println("tests pass !!")

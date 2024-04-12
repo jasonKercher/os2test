@@ -29,7 +29,7 @@ file_read_random :: proc() {
 	// using read_at
 	for i := 1; i < len(s); i += 1 {
 		sub := s[i:]
-		n, err := os2.read_at(f, buf[:], i64(i))
+		n, err = os2.read_at(f, buf[:], i64(i))
 		assume_ok(err)
 		assert(n == len(sub))
 		assert(string(buf[:n]) == sub)
@@ -39,7 +39,7 @@ file_read_random :: proc() {
 	for i := 1; i < len(s); i += 1 {
 		sub := s[i:]
 		os2.seek(f, i64(i), .Start)
-		n, err := os2.read(f, buf[:])
+		n, err = os2.read(f, buf[:])
 		assume_ok(err)
 		assert(n == len(sub))
 		assert(string(buf[:n]) == sub)
