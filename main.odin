@@ -53,16 +53,16 @@ verify_contents :: proc(file: ^os2.File, expected: string, loc := #caller_locati
 	assert(string(contents[:n]) == expected, loc = loc)
 }
 
-create_write :: proc(name, contents: string) -> (f: ^os2.File) {
+create_write :: proc(name, contents: string, loc := #caller_location) -> (f: ^os2.File) {
 	err: os2.Error
 	f, err = os2.open(name, {.Create, .Write, .Trunc}, 0o664)
-	assume_ok(err)
+	assume_ok(err, loc)
 
 	n: int
 	n, err = os2.write(f, transmute([]u8)contents)
-	assume_ok(err)
-	assert(n == len(contents))
+	assume_ok(err, loc)
+	assert(n == len(contents), "", loc)
 
-	assume_ok(os2.flush(f))  // really not necessary...
+	assume_ok(os2.flush(f), loc)  // really not necessary...
 	return
 }
