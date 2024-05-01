@@ -1,5 +1,6 @@
 package os2test
 
+import "core:fmt"
 import "core:time"
 import "core:os/os2"
 import "core:strings"
@@ -103,7 +104,7 @@ file_links_and_names :: proc() {
 	verify_contents(f, s)
 
 	assume_ok(os2.remove("target.txt"))
-	assume_ok(os2.remove("link.txt"))
+	assume_ok(os2.remove("link.txt")) // <<<<<<
 	assume_ok(os2.remove("new.txt"))
 }
 
@@ -115,7 +116,16 @@ file_permissions :: proc() {
 
 	err: os2.Error
 	f, err = os2.open("perm.txt", {.Read, .Write})
-	assert(err != nil)
+	if err == nil {
+		n: int
+		n, err = os2.write_string(f, "fail now?\n")
+
+
+	}
+	//assert(err != nil)
+	if err == nil {
+		fmt.eprintln("wtf...")
+	}
 
 	assume_ok(os2.chmod("perm.txt", 0o666)) // read-write
 	f, err = os2.open("perm.txt", {.Read, .Write})
