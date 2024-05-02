@@ -1,6 +1,5 @@
 package os2test
 
-import "core:fmt"
 import "core:time"
 import "core:os/os2"
 import "core:strings"
@@ -116,16 +115,7 @@ file_permissions :: proc() {
 
 	err: os2.Error
 	f, err = os2.open("perm.txt", {.Read, .Write})
-	if err == nil {
-		n: int
-		n, err = os2.write_string(f, "fail now?\n")
-
-
-	}
-	//assert(err != nil)
-	if err == nil {
-		fmt.eprintln("wtf...")
-	}
+	assert(err != nil)
 
 	assume_ok(os2.chmod("perm.txt", 0o666)) // read-write
 	f, err = os2.open("perm.txt", {.Read, .Write})
