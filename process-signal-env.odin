@@ -8,7 +8,7 @@ import "core:os/os2"
 
 _gen_odin: [64]u8
 
-_run_background :: proc(program: string, env: []string = {}, loc := #caller_location) -> os2.Process {
+_run_background :: proc(program: string, attr: ^os2.Process_Attributes = nil, loc := #caller_location) -> os2.Process {
 	@static i := 0
 	fmt.bprintf(_gen_odin[:], "generated%d.odin", i)
 	i += 1
@@ -17,12 +17,6 @@ _run_background :: proc(program: string, env: []string = {}, loc := #caller_loca
 	assume_ok(os2.close(f), loc)
 
 	args: [4]string = {"run", string(_gen_odin[:]), "-file", "-out:generated"}
-
-	attr: ^os2.Process_Attributes
-	if len(env) > 0 {
-		a: os2.Process_Attributes = { env = env }
-		attr = &a
-	}
 
 	when ODIN_ARCH == .amd64 {
 		odin_exe := "Odin/odin-amd64"
@@ -47,8 +41,8 @@ _reap :: proc(process: ^os2.Process, loc := #caller_location) -> int {
 	return state.exit_code
 }
 
-_run :: proc(program: string, env: []string = {}, loc := #caller_location) -> int {
-	p := _run_background(program, env, loc)
+_run :: proc(program: string, attr: ^os2.Process_Attributes = nil, loc := #caller_location) -> int {
+	p := _run_background(program, attr, loc)
 	return _reap(&p, loc)
 }
 
@@ -137,7 +131,10 @@ process_env :: proc() {
 	}
 	`
 	assert(_run(program) == 0)
-	assert(_run(program, org_env) != 0)
+
+	a: os2.Process_Attributes = { env = org_env }
+
+	assert(_run(program, &a) != 0)
 }
 
 
