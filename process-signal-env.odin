@@ -172,7 +172,6 @@ process_signals :: proc() {
 	assume_ok(err)
 	assert(bool(p.is_done))
 	assert(state.exit_code != 0)
-	assume_ok(os2.remove("generated"))
 	assume_ok(os2.remove(string(_gen_odin[:])))
 }
 
@@ -221,4 +220,5 @@ process_pipes :: proc() {
 	assert(string(buf[:n]) == "error channel")
 
 	assert(_reap(&p) == 0)
+	assume_ok(os2.remove("generated"))
 }
