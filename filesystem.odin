@@ -64,6 +64,7 @@ file_double_close_err :: proc() {
 
 file_links_and_names :: proc() {
 	if os2.exists("new.txt") { assume_ok(os2.remove("new.txt")) }
+	// exists will currently not see a broken link
 	if os2.exists("link.txt") { assume_ok(os2.remove("link.txt")) }
 	if os2.exists("target.txt") { assume_ok(os2.remove("target.txt")) }
 

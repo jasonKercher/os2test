@@ -5,8 +5,6 @@ import "core:time"
 import "core:os/os2"
 
 main :: proc() {
-	time.sleep(15 * time.Second)
-
 	fmt.println(os2.args)
 
 	fmt.println("running tests...")

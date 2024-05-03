@@ -18,7 +18,16 @@ _run_background :: proc(program: string, env: []string = {}, loc := #caller_loca
 		attr = &a
 	}
 
-	p, err := os2.process_start("Odin/odin-native", args[:], attr)
+	when ODIN_ARCH == .amd64 {
+		odin_exe := "Odin/odin-amd64"
+	} else when ODIN_ARCH == .arm64 {
+		odin_exe := "Odin/odin-arm64"
+	} else when ODIN_ARCH == .arm32 {
+		odin_exe := "Odin/odin-arm"
+	} else when ODIN_ARCH == .i386 {
+		odin_exe := "Odin/odin-i386"
+	}
+	p, err := os2.process_start(odin_exe, args[:], attr)
 	assume_ok(err, loc)
 
 	return p
