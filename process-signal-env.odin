@@ -177,5 +177,48 @@ process_signals :: proc() {
 }
 
 process_pipes :: proc() {
-	// TODO
+	child_stdin:  os2.File
+	child_stdout: os2.File
+	child_stderr: os2.File
+
+	// lol.. this api. Save me flysand!
+	attr: os2.Process_Attributes = {
+		env = os2.environ(),
+		stdin  = &child_stdin,
+		stdout = &child_stdout,
+		stderr = &child_stderr,
+	}
+
+	program := `
+	package auto
+	import "core:os/os2"
+	import "core:time"
+
+	main :: proc() {
+	      buf: [32]u8
+	      n, err := os2.read(os2.stdin, buf[:])
+	      if (err != nil) { os2.exit(1) }
+	      if (string(buf[:n]) != "GO!") { os2.exit(2) }
+
+	      n, err = os2.write_string(os2.stdout, "Hi there!")
+	      if (err != nil) { os2.exit(3) }
+	      n, err = os2.write_string(os2.stderr, "error channel")
+	      if (err != nil) { os2.exit(4) }
+	}
+	`
+	p := _run_background(program, &attr)
+
+	n, err := os2.write_string(&child_stdin, "GO!")
+	assume_ok(err)
+
+	buf: [32]u8
+	n, err = os2.read(&child_stdout, buf[:])
+	assume_ok(err)
+	assert(string(buf[:n]) == "Hi there!")
+
+	n, err = os2.read(&child_stderr, buf[:])
+	assume_ok(err)
+	assert(string(buf[:n]) == "error channel")
+
+	assert(_reap(&p) == 0)
 }
