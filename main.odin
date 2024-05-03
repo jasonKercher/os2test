@@ -1,7 +1,6 @@
 package os2test
 
 import "core:fmt"
-import "core:time"
 import "core:os/os2"
 
 main :: proc() {
