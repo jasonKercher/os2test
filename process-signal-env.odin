@@ -47,60 +47,33 @@ _run :: proc(program: string, attr: ^os2.Process_Attributes = nil, loc := #calle
 }
 
 env_basic :: proc() {
-	val, found := os2.lookup_env("DoEs-NoT-ExIsT")
+	val, found := os2.lookup_env("DoEs-NoT-ExIsT", context.allocator)
 	assert(!found)
 
 	path: string
-	path, found = os2.lookup_env("PATH")
+	path, found = os2.lookup_env("PATH", context.allocator)
 	assert(found)
 	assert(len(path) != 0)
 
-	env := os2.environ()
+	env := os2.environ(context.allocator)
 	env_size := len(env)
 	delete(env)
 
 	os2.set_env("os2_env_KEY", "VALUE")
-	val, found = os2.lookup_env("os2_env_KEY")
+	val, found = os2.lookup_env("os2_env_KEY", context.allocator)
 	assert(found)
 	assert(val == "VALUE")
 
-	env = os2.environ()
+	env = os2.environ(context.allocator)
 	assert(len(env) == env_size + 1)
 	delete(env)
 
 	assert(os2.unset_env("os2_env_KEY"))
 	assert(!os2.unset_env("os2_env_KEY"))
 
-	env = os2.environ()
+	env = os2.environ(context.allocator)
 	defer delete(env)
 	assert(len(env) == env_size)
-}
-
-process_waits :: proc() {
-	sleep_argv: [5]string
-	sleep_argc := 0
-	when ODIN_OS == .Windows {
-		sleep_exe := "timeout"
-		sleep_argv[sleep_argc] = "/t"
-		sleep_argc += 1
-	} else {
-		sleep_exe := "sleep"
-	}
-
-	sleep_argv[sleep_argc] = ".5"
-	sleep_argc += 1
-
-	p, err := os2.process_start(sleep_exe, sleep_argv[:sleep_argc])
-	assume_ok(err)
-
-	state: os2.Process_State
-	state, err = os2.process_wait(&p, time.Millisecond * 100)
-	assume_ok(err)
-	assert(!state.exited)
-
-	state, err = os2.process_wait(&p)
-	assume_ok(err)
-	assert(state.exited && state.success)
 }
 
 process_env :: proc() {
@@ -109,23 +82,23 @@ process_env :: proc() {
 	import "core:os/os2"
 	main :: proc() {
 		res := 0
-		env := os2.environ()
+		env := os2.environ(context.allocator)
 		if len(env) <= 0 { os2.exit(1) }
 		os2.clear_env()
-		env = os2.environ()
+		env = os2.environ(context.allocator)
 		if len(env) != 0 { os2.exit(2) }
 	}
 	`
 	assert(_run(program) == 0)
 
-	org_env := os2.environ()
+	org_env := os2.environ(context.allocator)
 	os2.set_env("var_to_read_in_child", "child")
 	/* should inherit our new var */
 	program = `
 	package auto
 	import "core:os/os2"
 	main :: proc() {
-		val, found := os2.lookup_env("var_to_read_in_child")
+		val, found := os2.lookup_env("var_to_read_in_child", context.allocator)
 		if !found { os2.exit(1) }
 		if val != "child" { os2.exit(2) }assert(found && val == "child")
 	}
@@ -182,7 +155,7 @@ process_pipes :: proc() {
 
 	// lol.. this api. Save me flysand!
 	attr: os2.Process_Attributes = {
-		env = os2.environ(),
+		env = os2.environ(context.allocator),
 		stdin  = &child_stdin,
 		stdout = &child_stdout,
 		stderr = &child_stderr,
@@ -222,3 +195,31 @@ process_pipes :: proc() {
 	assert(_reap(&p) == 0)
 	assume_ok(os2.remove("generated"))
 }
+
+process_waits :: proc() {
+	sleep_argv: [5]string
+	sleep_argc := 0
+	when ODIN_OS == .Windows {
+		sleep_exe := "timeout"
+		sleep_argv[sleep_argc] = "/t"
+		sleep_argc += 1
+	} else {
+		sleep_exe := "sleep"
+	}
+
+	sleep_argv[sleep_argc] = ".5"
+	sleep_argc += 1
+
+	p, err := os2.process_start(sleep_exe, sleep_argv[:sleep_argc])
+	assume_ok(err)
+
+	state: os2.Process_State
+	state, err = os2.process_wait(&p, time.Millisecond * 100)
+	assume_ok(err)
+	assert(!state.exited)
+
+	state, err = os2.process_wait(&p)
+	assume_ok(err)
+	assert(state.exited && state.success)
+}
+

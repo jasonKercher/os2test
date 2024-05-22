@@ -193,7 +193,7 @@ _make_dirs :: proc() {
 }
 
 _change_dirs :: proc() {
-	base_dir, err := os2.get_working_directory()
+	base_dir, err := os2.get_working_directory(context.allocator)
 	assume_ok(err)
 	defer delete(base_dir)
 
@@ -201,7 +201,7 @@ _change_dirs :: proc() {
 	assume_ok(os2.set_working_directory("dir1"))
 
 	dir1: string
-	dir1, err = os2.get_working_directory()
+	dir1, err = os2.get_working_directory(context.allocator)
 	assume_ok(err)
 	defer delete(dir1)
 	assert(dir1 != base_dir)
@@ -214,7 +214,7 @@ _change_dirs :: proc() {
 	assume_ok(os2.set_working_directory(fullpath))
 
 	dir2: string
-	dir2, err = os2.get_working_directory()
+	dir2, err = os2.get_working_directory(context.allocator)
 	assume_ok(err)
 	defer delete(dir2)
 	assert(dir2 != base_dir)
@@ -223,7 +223,7 @@ _change_dirs :: proc() {
 	/* back to original directory if all went well. */
 	assume_ok(os2.set_working_directory("../../"))
 	final_dir: string
-	final_dir, err = os2.get_working_directory()
+	final_dir, err = os2.get_working_directory(context.allocator)
 	assume_ok(err)
 	defer delete(final_dir)
 	assert(final_dir == base_dir)
