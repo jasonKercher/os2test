@@ -8,7 +8,7 @@ import "core:os/os2"
 
 _gen_odin: [64]u8
 
-_run_background :: proc(program: string, attr: ^os2.Process_Attributes = nil, loc := #caller_location) -> os2.Process {
+_run_background :: proc(program: string, desc: ^os2.Process_Desc = nil, loc := #caller_location) -> os2.Process {
 	@static i := 0
 	fmt.bprintf(_gen_odin[:], "generated%d.odin", i)
 	i += 1
@@ -18,31 +18,28 @@ _run_background :: proc(program: string, attr: ^os2.Process_Attributes = nil, lo
 
 	args: [4]string = {"run", string(_gen_odin[:]), "-file", "-out:generated"}
 
-	when ODIN_ARCH == .amd64 {
-		odin_exe := "Odin/odin-amd64"
-	} else when ODIN_ARCH == .arm64 {
-		odin_exe := "Odin/odin-arm64"
-	} else when ODIN_ARCH == .arm32 {
-		odin_exe := "Odin/odin-arm"
-	} else when ODIN_ARCH == .i386 {
-		odin_exe := "Odin/odin-i386"
+	new_desc: os2.Process_Desc
+	if desc != nil {
+		new_desc = desc^
 	}
-	p, err := os2.process_start(odin_exe, args[:], attr)
+	new_desc.command = args[:]
+
+	p, err := os2.process_start(new_desc)
 	assume_ok(err, loc)
 
 	return p
 }
 
 _reap :: proc(process: ^os2.Process, loc := #caller_location) -> int {
-	state, err := os2.process_wait(process)
+	state, err := os2.process_wait(process^)
 	assume_ok(err, loc)
-	assert(bool(process.is_done), "", loc)
+	assert(state.exited, "", loc)
 	assume_ok(os2.remove(string(_gen_odin[:])), loc)
 	return state.exit_code
 }
 
-_run :: proc(program: string, attr: ^os2.Process_Attributes = nil, loc := #caller_location) -> int {
-	p := _run_background(program, attr, loc)
+_run :: proc(program: string, desc: ^os2.Process_Desc= nil, loc := #caller_location) -> int {
+	p := _run_background(program, desc, loc)
 	return _reap(&p, loc)
 }
 
@@ -105,9 +102,11 @@ process_env :: proc() {
 	`
 	assert(_run(program) == 0)
 
-	a: os2.Process_Attributes = { env = org_env }
+	desc: os2.Process_Desc = {
+		env = org_env
+	}
 
-	assert(_run(program, &a) != 0)
+	assert(_run(program, &desc) != 0)
 }
 
 
@@ -137,13 +136,13 @@ process_signals :: proc() {
 	_reap(&p)
 
 	p = _run_background(program)
-	assume_ok(os2.process_kill(&p))
+	assume_ok(os2.process_kill(p))
 
 	time.sleep(250 * time.Millisecond)
 
-	state, err := os2.process_wait(&p, time.Duration(0))
+	state, err := os2.process_wait(p, time.Duration(0))
 	assume_ok(err)
-	assert(bool(p.is_done))
+	assert(state.exited)
 	assert(state.exit_code != 0)
 	assume_ok(os2.remove(string(_gen_odin[:])))
 }
@@ -154,7 +153,7 @@ process_pipes :: proc() {
 	child_stderr: os2.File
 
 	// lol.. this api. Save me flysand!
-	attr: os2.Process_Attributes = {
+	desc: os2.Process_Desc= {
 		env = os2.environ(context.allocator),
 		stdin  = &child_stdin,
 		stdout = &child_stdout,
@@ -178,7 +177,7 @@ process_pipes :: proc() {
 	      if (err != nil) { os2.exit(4) }
 	}
 	`
-	p := _run_background(program, &attr)
+	p := _run_background(program, &desc)
 
 	n, err := os2.write_string(&child_stdin, "GO!")
 	assume_ok(err)
@@ -199,26 +198,32 @@ process_pipes :: proc() {
 process_waits :: proc() {
 	sleep_argv: [5]string
 	sleep_argc := 0
+	// TODO: Easier to just write an Odin program here...
 	when ODIN_OS == .Windows {
-		sleep_exe := "timeout"
-		sleep_argv[sleep_argc] = "/t"
-		sleep_argc += 1
+		sleep_argv[0] = "timeout"
+		sleep_argv[1] = "/t"
+		sleep_argc = 2
 	} else {
-		sleep_exe := "sleep"
+		sleep_argv[0] = "sleep"
+		sleep_argc = 1
 	}
 
 	sleep_argv[sleep_argc] = ".5"
 	sleep_argc += 1
 
-	p, err := os2.process_start(sleep_exe, sleep_argv[:sleep_argc])
+	desc: os2.Process_Desc = {
+		command = sleep_argv[:sleep_argc]
+	}
+
+	p, err := os2.process_start(desc)
 	assume_ok(err)
 
 	state: os2.Process_State
-	state, err = os2.process_wait(&p, time.Millisecond * 100)
+	state, err = os2.process_wait(p, time.Millisecond * 100)
 	assume_ok(err)
 	assert(!state.exited)
 
-	state, err = os2.process_wait(&p)
+	state, err = os2.process_wait(p)
 	assume_ok(err)
 	assert(state.exited && state.success)
 }

@@ -138,7 +138,7 @@ file_times :: proc() {
 	assume_ok(err0)
 	info1, err1 := os2.fstat(f1, context.allocator)
 	assume_ok(err1)
-	assert(!info0.is_directory && !info1.is_directory)
+	assert(info0.type == .Regular && info1.type == .Regular)
 
 	assert(info0.modification_time == info1.modification_time)
 	assert(info0.access_time == info1.access_time)

@@ -33,7 +33,7 @@ assume_ok :: proc(err: os2.Error, loc := #caller_location) {
 	if err == nil {
 		return
 	}
-	os2.print_error(err, "unexpected error")
+	os2.print_error(os2.stderr, err, "unexpected error")
 	panic("test failed", loc)
 }
 
@@ -42,7 +42,7 @@ expect_error :: proc(err: os2.Error, msg: string = "", loc := #caller_location) 
 	s := "Expecting Error: "
 	os2.write(os2.stdout, transmute([]u8)(s))
 	assert(err != nil, "", loc)
-	os2.print_error(err, msg)
+	os2.print_error(os2.stderr, err, msg)
 }
 
 verify_contents :: proc(file: ^os2.File, expected: string, loc := #caller_location) {
