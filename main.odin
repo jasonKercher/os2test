@@ -22,7 +22,6 @@ main :: proc() {
 
 	env_basic()
 	process_env()
-	process_signals()
 	process_pipes()
 	process_waits() // do last...
 
