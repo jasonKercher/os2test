@@ -14,27 +14,34 @@ _run_background :: proc(program: string, desc: ^os2.Process_Desc = nil, loc := #
 	f := create_write(string(_gen_odin[:]), program)
 	assume_ok(os2.close(f), loc)
 
-	args := [?]string {"./odin", "build", string(_gen_odin[:]), "-file", "-out:generated"}
+	/* Build our program */
+	{
+		args := [?]string {"./odin", "build", string(_gen_odin[:]), "-file", "-out:generated"}
+		odin_build_desc: os2.Process_Desc
+		odin_build_desc.command = args[:]
 
-	new_desc: os2.Process_Desc
-	if desc != nil {
-		new_desc = desc^
+		odin_build, odin_err := os2.process_start(odin_build_desc)
+		assume_ok(odin_err, loc)
+		if _reap(&odin_build) != 0 {
+			fmt.println("Failed to build program at", loc)
+			os2.exit(2)
+		}
 	}
-	new_desc.command = args[:]
 
-	odin_build, odin_err := os2.process_start(new_desc)
-	assume_ok(odin_err, loc)
-	if _reap(&odin_build) != 0 {
-		fmt.println("Failed to build program at", loc)
-		os2.exit(2)
+	/* Run our program */
+	{
+		args := [?]string { "./generated" }
+
+		new_desc: os2.Process_Desc
+		if desc != nil {
+			new_desc = desc^
+		}
+
+		new_desc.command = args[:]
+		p, err := os2.process_start(new_desc)
+		assume_ok(err, loc)
+		return p
 	}
-
-	args[0] = "./generated"
-	new_desc.command = args[:1]
-	p, err := os2.process_start(new_desc)
-	assume_ok(err, loc)
-
-	return p
 }
 
 _reap :: proc(process: ^os2.Process, loc := #caller_location) -> int {
@@ -125,95 +132,90 @@ process_pipes :: proc() {
 	//	allocator: runtime.Allocator,
 	//}
 
-	c_stdin:  ^os2.File
-	c_stdout: ^os2.File
-	c_stderr: ^os2.File
-	p_stdin:  ^os2.File
-	p_stdout: ^os2.File
-	p_stderr: ^os2.File
+	stdin_pipe:  [2]^os2.File
+	stdout_pipe: [2]^os2.File
+	stderr_pipe: [2]^os2.File
 
 	err: os2.Error
 
-	c_stdin, p_stdin, err = os2.pipe()
+	stdin_pipe[READ], stdin_pipe[WRITE], err = os2.pipe()
 	assume_ok(err)
-	p_stdout, c_stdout, err = os2.pipe()
+	stdout_pipe[READ], stdout_pipe[WRITE], err = os2.pipe()
 	assume_ok(err)
-	p_stderr, c_stderr, err = os2.pipe()
+	stderr_pipe[READ], stderr_pipe[WRITE], err = os2.pipe()
 	assume_ok(err)
 
 	desc: os2.Process_Desc = {
 		env    = os2.environ(context.allocator),
-		stdin  = c_stdin,
-		stdout = c_stdout,
-		stderr = c_stderr,
+		stdin  = stdin_pipe[READ],
+		stdout = stdout_pipe[WRITE],
+		stderr = stderr_pipe[WRITE],
 	}
 
 	program := `
 	package auto
+	import "core:fmt"
 	import "core:os/os2"
+	import "core:sys/linux"
 
 	main :: proc() {
 		buf: [32]u8
-		n, err := os2.read(os2.stdin, buf[:])
 
-		if (err != nil) { os2.exit(1) }
-		if (string(buf[:n]) != "GO!") { os2.exit(2) }
+		n, err := os2.read(os2.stdin, buf[:])
+		if err != nil {
+			fmt.println(err)
+			os2.exit(1)
+		}
+		if string(buf[:n]) != "GO!" { os2.exit(2) }
 
 		n, err = os2.write_string(os2.stdout, "Hi there!")
-		if (err != nil) { os2.exit(3) }
+		if err != nil { os2.exit(3) }
 		n, err = os2.write_string(os2.stderr, "error channel")
-		if (err != nil) { os2.exit(4) }
+		if err != nil { os2.exit(4) }
 	}
 	`
 	p := _run_background(program, &desc)
-	fmt.println("pid:", p.pid)
+
+	assume_ok(os2.close(stdin_pipe[READ]))
+	assume_ok(os2.close(stdout_pipe[WRITE]))
+	assume_ok(os2.close(stderr_pipe[WRITE]))
+
+	READ  :: 0
+	WRITE :: 1
 
 	n: int
-	n, err = os2.write_string(p_stdin, "GO!")
+	n, err = os2.write_string(stdin_pipe[WRITE], "GO!")
 	assume_ok(err)
 
 	buf: [32]u8
-	n, err = os2.read(p_stdout, buf[:])
-	//assume_ok(err)
-	//assert(string(buf[:n]) == "Hi there!")
+	n, err = os2.read(stdout_pipe[READ], buf[:])
+	assume_ok(err)
+	assert(string(buf[:n]) == "Hi there!")
 
-	n, err = os2.read(p_stderr, buf[:])
-	//assume_ok(err)
-	//assert(string(buf[:n]) == "error channel")
+	n, err = os2.read(stderr_pipe[READ], buf[:])
+	assume_ok(err)
+	assert(string(buf[:n]) == "error channel")
 
 	assert(_reap(&p) == 0)
 	assume_ok(os2.remove("generated"))
 
-	assume_ok(os2.close(p_stdin))
-	assume_ok(os2.close(p_stdout))
-	assume_ok(os2.close(p_stderr))
+	assume_ok(os2.close(stdin_pipe[WRITE]))
+	assume_ok(os2.close(stdout_pipe[READ]))
+	assume_ok(os2.close(stderr_pipe[READ]))
 }
 
 process_waits :: proc() {
-	sleep_argv: [5]string
-	sleep_argc := 0
-	// TODO: Easier to just write an Odin program here...
-	when ODIN_OS == .Windows {
-		sleep_argv[0] = "timeout"
-		sleep_argv[1] = "/t"
-		sleep_argc = 2
-	} else {
-		sleep_argv[0] = "sleep"
-		sleep_argc = 1
+	program := `
+	package auto
+	import "core:time"
+
+	main :: proc() {
+		time.sleep(500 * time.Millisecond)
 	}
+	`
+	p := _run_background(program)
 
-	sleep_argv[sleep_argc] = ".5"
-	sleep_argc += 1
-
-	desc: os2.Process_Desc = {
-		command = sleep_argv[:sleep_argc],
-	}
-
-	p, err := os2.process_start(desc)
-	assume_ok(err)
-
-	state: os2.Process_State
-	state, err = os2.process_wait(p, time.Millisecond * 100)
+	state, err := os2.process_wait(p, time.Millisecond * 100)
 	assume_ok(err)
 	assert(!state.exited)
 
