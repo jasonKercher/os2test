@@ -37,7 +37,9 @@ _run_background :: proc(program: string, desc: ^os2.Process_Desc = nil, loc := #
 			new_desc = desc^
 		}
 
-		new_desc.command = args[:]
+		if new_desc.command == nil {
+			new_desc.command = args[:]
+		}
 		p, err := os2.process_start(new_desc)
 		assume_ok(err, loc)
 		return p
@@ -205,19 +207,37 @@ process_pipes :: proc() {
 }
 
 process_waits :: proc() {
+	desc: os2.Process_Desc = {
+		command = {"./generated", "1", "2.0", "3"},
+	}
+
 	program := `
 	package auto
 	import "core:time"
 
 	main :: proc() {
-		time.sleep(500 * time.Millisecond)
+		time.sleep(1 * time.Second)
 	}
 	`
-	p := _run_background(program)
+	p := _run_background(program, &desc)
 
 	state, err := os2.process_wait(p, time.Millisecond * 100)
 	assume_ok(err)
 	assert(!state.exited)
+
+	selection: os2.Process_Info_Fields = {
+		.Executable_Path,
+		.PPid,
+		.Priority,
+		.Command_Line,
+		.Command_Args,
+		.Environment,
+		.Username,
+		.Working_Dir,
+	}
+	info, info_err := os2.process_info(p, selection, context.allocator)
+	assume_ok(info_err)
+	fmt.println(info)
 
 	state, err = os2.process_wait(p)
 	assume_ok(err)
