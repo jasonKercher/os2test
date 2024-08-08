@@ -206,6 +206,31 @@ process_pipes :: proc() {
 	assume_ok(os2.close(stderr_pipe[READ]))
 }
 
+process_info :: proc() {
+	selection: os2.Process_Info_Fields = {
+		.Executable_Path,
+		.PPid,
+		.Priority,
+		.Command_Line,
+		.Command_Args,
+		.Environment,
+		.Username,
+		.Working_Dir,
+	}
+	info, info_err := os2.process_info(selection, context.allocator)
+	assume_ok(info_err)
+	defer os2.free_process_info(info, context.allocator)
+
+	assert(info.pid == os2.get_pid())
+	assert(info.ppid == os2.get_ppid())
+
+	list, err := os2.process_list(context.allocator)
+	assume_ok(err)
+	defer delete(list)
+
+	fmt.println(list)
+}
+
 process_waits :: proc() {
 	desc: os2.Process_Desc = {
 		command = {"./generated", "1", "2.0", "3"},
@@ -216,14 +241,20 @@ process_waits :: proc() {
 	import "core:time"
 
 	main :: proc() {
-		time.sleep(1 * time.Second)
+		time.sleep(2 * time.Second)
 	}
 	`
 	p := _run_background(program, &desc)
 
-	state, err := os2.process_wait(p, time.Millisecond * 100)
+	state, err := os2.process_wait(p, 0)
 	assume_ok(err)
 	assert(!state.exited)
+
+	state, err = os2.process_wait(p, 200 * time.Millisecond)
+	assume_ok(err)
+	assert(!state.exited)
+
+	fmt.println("u/s time:", state.user_time, state.system_time)
 
 	selection: os2.Process_Info_Fields = {
 		.Executable_Path,
@@ -242,5 +273,7 @@ process_waits :: proc() {
 	state, err = os2.process_wait(p)
 	assume_ok(err)
 	assert(state.exited && state.success)
+
+	fmt.println("u/s time:", state.user_time, state.system_time)
 }
 

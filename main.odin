@@ -23,6 +23,7 @@ main :: proc() {
 	env_basic()
 	process_env()
 	process_pipes()
+	process_info()
 	process_waits() // do last...
 
 	fmt.println("tests pass !!")
