@@ -4,9 +4,13 @@ import "core:fmt"
 import "core:time"
 import "core:os/os2"
 
+import "base:runtime"
+import "core:sync"
+import "core:sys/linux"
+
 _gen_odin: [64]u8
 
-_run_background :: proc(program: string, desc: ^os2.Process_Desc = nil, loc := #caller_location) -> os2.Process {
+_run_background :: proc(program: string, desc: ^os2.Process_Desc = nil, loc := #caller_location) -> (os2.Process, os2.Error) {
 	@static i := 0
 	fmt.bprintf(_gen_odin[:], "generated%d.odin", i)
 	i += 1
@@ -41,8 +45,7 @@ _run_background :: proc(program: string, desc: ^os2.Process_Desc = nil, loc := #
 			new_desc.command = args[:]
 		}
 		p, err := os2.process_start(new_desc)
-		assume_ok(err, loc)
-		return p
+		return p, err
 	}
 }
 
@@ -55,7 +58,8 @@ _reap :: proc(process: ^os2.Process, loc := #caller_location) -> int {
 }
 
 _run :: proc(program: string, desc: ^os2.Process_Desc= nil, loc := #caller_location) -> int {
-	p := _run_background(program, desc, loc)
+	p, err := _run_background(program, desc, loc)
+	assume_ok(err, loc)
 	return _reap(&p, loc)
 }
 
@@ -127,12 +131,8 @@ process_env :: proc() {
 
 
 process_pipes :: proc() {
-	//File_Impl :: struct {
-	//	file: os2.File,
-	//	name: string,
-	//	fd: linux.Fd,
-	//	allocator: runtime.Allocator,
-	//}
+	READ  :: 0
+	WRITE :: 1
 
 	stdin_pipe:  [2]^os2.File
 	stdout_pipe: [2]^os2.File
@@ -176,14 +176,13 @@ process_pipes :: proc() {
 		if err != nil { os2.exit(4) }
 	}
 	`
-	p := _run_background(program, &desc)
+	p: os2.Process
+	p, err = _run_background(program, &desc)
+	assume_ok(err)
 
 	assume_ok(os2.close(stdin_pipe[READ]))
 	assume_ok(os2.close(stdout_pipe[WRITE]))
 	assume_ok(os2.close(stderr_pipe[WRITE]))
-
-	READ  :: 0
-	WRITE :: 1
 
 	n: int
 	n, err = os2.write_string(stdin_pipe[WRITE], "GO!")
@@ -231,6 +230,47 @@ process_info :: proc() {
 	fmt.println(list)
 }
 
+process_errors :: proc() {
+	READ  :: 0
+	WRITE :: 1
+
+	File_Impl :: struct {
+		file: os2.File,
+		name: string,
+		fd: linux.Fd,
+		allocator: runtime.Allocator,
+
+		buffer:   []byte,
+		rw_mutex: sync.RW_Mutex, // read write calls
+		p_mutex:  sync.Mutex, // pread pwrite calls
+	}
+
+	err: os2.Error
+	stdin_pipe:  [2]^os2.File
+	stdin_pipe[READ], stdin_pipe[WRITE], err = os2.pipe()
+	assume_ok(err)
+
+	impl := (^File_Impl)(rawptr(stdin_pipe[READ].impl))
+	impl.fd = 2_000_000_000
+	impl = (^File_Impl)(rawptr(stdin_pipe[WRITE].impl))
+	impl.fd = 2_000_000_000
+
+	desc: os2.Process_Desc = {
+		env    = os2.environ(context.allocator),
+		stdin  = stdin_pipe[READ],
+	}
+
+	program := `
+	package auto
+	import "core:fmt"
+	main :: proc() { fmt.println("hello\n") }
+	`
+	p: os2.Process
+	p, err = _run_background(program, &desc)
+	expect_error(err, "child stdin dup fail")
+
+}
+
 process_waits :: proc() {
 	desc: os2.Process_Desc = {
 		command = {"./generated", "1", "2.0", "3"},
@@ -241,20 +281,25 @@ process_waits :: proc() {
 	import "core:time"
 
 	main :: proc() {
-		time.sleep(2 * time.Second)
+		start_tick := time.tick_now()
+		for time.tick_since(start_tick) < 3 * time.Second { }
 	}
 	`
-	p := _run_background(program, &desc)
+	p, err := _run_background(program, &desc)
+	assume_ok(err)
 
-	state, err := os2.process_wait(p, 0)
+	state: os2.Process_State
+	state, err = os2.process_wait(p, 0)
 	assume_ok(err)
 	assert(!state.exited)
+
+	fmt.println("after 0ms wait:", state.user_time, state.system_time)
 
 	state, err = os2.process_wait(p, 200 * time.Millisecond)
 	assume_ok(err)
 	assert(!state.exited)
 
-	fmt.println("u/s time:", state.user_time, state.system_time)
+	fmt.println("after 200ms wait:", state.user_time, state.system_time)
 
 	selection: os2.Process_Info_Fields = {
 		.Executable_Path,
@@ -274,6 +319,5 @@ process_waits :: proc() {
 	assume_ok(err)
 	assert(state.exited && state.success)
 
-	fmt.println("u/s time:", state.user_time, state.system_time)
+	fmt.println("after full wait (~3ms):", state.user_time, state.system_time)
 }
-
