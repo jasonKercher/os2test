@@ -290,13 +290,13 @@ process_waits :: proc() {
 
 	state: os2.Process_State
 	state, err = os2.process_wait(p, 0)
-	assume_ok(err)
+	assert(err == .Timeout)
 	assert(!state.exited)
 
 	fmt.println("after 0ms wait:", state.user_time, state.system_time)
 
 	state, err = os2.process_wait(p, 200 * time.Millisecond)
-	assume_ok(err)
+	assert(err == .Timeout)
 	assert(!state.exited)
 
 	fmt.println("after 200ms wait:", state.user_time, state.system_time)
