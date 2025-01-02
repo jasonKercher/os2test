@@ -22,6 +22,7 @@ main :: proc() {
 
 	env_basic()
 	process_env()
+	process_script()
 	process_pipes()
 	process_info()
 	process_errors()

@@ -129,6 +129,25 @@ process_env :: proc() {
 	assert(_run(program, &desc) != 0)
 }
 
+process_script :: proc() {
+	f := create_write("nada.sh", "#!/bin/bash")
+	assume_ok(os2.fchmod(f, 0o775))
+	os2.close(f)
+
+	desc: os2.Process_Desc = {
+		command = {"nada.sh"},
+	}
+	p, err := os2.process_start(desc)
+	assume_ok(err)
+
+	state, wait_err := os2.process_wait(p)
+	assume_ok(wait_err)
+	assert(state.exited)
+	assert(state.success)
+	assert(state.exit_code == 0)
+
+	assume_ok(os2.remove("nada.sh"))
+}
 
 process_pipes :: proc() {
 	READ  :: 0
