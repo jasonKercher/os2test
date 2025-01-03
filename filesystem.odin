@@ -131,6 +131,7 @@ file_times :: proc() {
 	f1 := create_write("time1.txt", "hi")
 
 	assume_ok(os2.close(f0))
+	// TODO: Something other than 0?
 	assume_ok(os2.chtimes("time0.txt", time.Time{0}, time.Time{0}))
 	assume_ok(os2.fchtimes(f1, time.Time{0}, time.Time{0}))
 
@@ -175,17 +176,17 @@ _make_dirs :: proc() {
 	if os2.exists("dir1") {
 		assume_ok(os2.remove_all("dir1"))
 	}
-	if os2.exists("dir2") {
-		assume_ok(os2.remove_all("dir2"))
+	if os2.exists("dir2-that-actually-has-a-pretty-long-name-and-stuff") {
+		assume_ok(os2.remove_all("dir2-that-actually-has-a-pretty-long-name-and-stuff"))
 	}
 
 	assume_ok(os2.make_directory("dir1", 0o775))
-	assume_ok(os2.make_directory_all("dir2/sub1/", 0o775))
+	assume_ok(os2.make_directory_all("dir2-that-actually-has-a-pretty-long-name-and-stuff/sub1/", 0o775))
 
 	/* directories are writable... */
 	f := create_write("dir1/test.txt", "hello")
 	os2.close(f)
-	f = create_write("dir2/sub1/test.txt", "hello")
+	f = create_write("dir2-that-actually-has-a-pretty-long-name-and-stuff/sub1/test.txt", "hello")
 	os2.close(f)
 
 	err := os2.make_directory("dir-no-exist/sub1", 0o775)
@@ -207,7 +208,7 @@ _change_dirs :: proc() {
 	assert(dir1 != base_dir)
 
 	/* access via full path */
-	concat: [2]string = { base_dir, "/dir2/sub1" }
+	concat: [2]string = { base_dir, "/dir2-that-actually-has-a-pretty-long-name-and-stuff/sub1" }
 	fullpath, mem_err := strings.concatenate(concat[:])
 	assert(mem_err == nil)
 
@@ -231,11 +232,11 @@ _change_dirs :: proc() {
 
 _remove_dirs :: proc() {
 	assert(os2.is_directory("dir1"))
-	assert(os2.is_directory("dir2"))
+	assert(os2.is_directory("dir2-that-actually-has-a-pretty-long-name-and-stuff"))
 
 	assume_ok(os2.remove_all("dir1"))
-	assume_ok(os2.remove_all("dir2"))
+	assume_ok(os2.remove_all("dir2-that-actually-has-a-pretty-long-name-and-stuff"))
 
 	assert(!os2.is_directory("dir1"))
-	assert(!os2.is_directory("dir2"))
+	assert(!os2.is_directory("dir2-that-actually-has-a-pretty-long-name-and-stuff"))
 }
