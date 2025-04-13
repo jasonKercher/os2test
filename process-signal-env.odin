@@ -72,7 +72,7 @@ env_basic :: proc() {
 	assert(found)
 	assert(len(path) != 0)
 
-	env := os2.environ(context.allocator)
+	env, err := os2.environ(context.allocator)
 	env_size := len(env)
 	delete(env)
 
@@ -81,14 +81,14 @@ env_basic :: proc() {
 	assert(found)
 	assert(val == "VALUE")
 
-	env = os2.environ(context.allocator)
+	env, err = os2.environ(context.allocator)
 	assert(len(env) == env_size + 1)
 	delete(env)
 
 	assert(os2.unset_env("os2_env_KEY"))
 	assert(!os2.unset_env("os2_env_KEY"))
 
-	env = os2.environ(context.allocator)
+	env, err = os2.environ(context.allocator)
 	defer delete(env)
 	assert(len(env) == env_size)
 }
@@ -99,16 +99,16 @@ process_env :: proc() {
 	import "core:os/os2"
 	main :: proc() {
 		res := 0
-		env := os2.environ(context.allocator)
+		env, err := os2.environ(context.allocator)
 		if len(env) <= 0 { os2.exit(1) }
 		os2.clear_env()
-		env = os2.environ(context.allocator)
+		env, err = os2.environ(context.allocator)
 		if len(env) != 0 { os2.exit(2) }
 	}
 	`
 	assert(_run(program) == 0)
 
-	org_env := os2.environ(context.allocator)
+	org_env, err := os2.environ(context.allocator)
 	os2.set_env("var_to_read_in_child", "child")
 	/* should inherit our new var */
 	program = `
@@ -166,8 +166,11 @@ process_pipes :: proc() {
 	stderr_pipe[READ], stderr_pipe[WRITE], err = os2.pipe()
 	assume_ok(err)
 
+	env: []string
+	env, err = os2.environ(context.allocator)
+	assume_ok(err)
 	desc: os2.Process_Desc = {
-		env    = os2.environ(context.allocator),
+		env    = env,
 		stdin  = stdin_pipe[READ],
 		stdout = stdout_pipe[WRITE],
 		stderr = stderr_pipe[WRITE],
@@ -274,8 +277,11 @@ process_errors :: proc() {
 	impl = (^File_Impl)(rawptr(stdin_pipe[WRITE].impl))
 	impl.fd = 2_000_000_000
 
+	env: []string
+	env, err = os2.environ(context.allocator)
+	assume_ok(err)
 	desc: os2.Process_Desc = {
-		env    = os2.environ(context.allocator),
+		env    = env,
 		stdin  = stdin_pipe[READ],
 	}
 
