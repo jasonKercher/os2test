@@ -168,6 +168,7 @@ file_size :: proc() {
 
 paths :: proc() {
 	_make_dirs()
+	_read_dirs()
 	_change_dirs()
 	_remove_dirs()
 }
@@ -191,6 +192,31 @@ _make_dirs :: proc() {
 
 	err := os.make_directory("dir-no-exist/sub1", 0o775)
 	expect_error(err, "dir-no-exist")
+}
+
+_read_dirs :: proc() {
+	found_dir1: bool
+	found_dir2: bool
+
+	f:   ^os.File
+	err: os.Error
+	f, err = os.open(".", {})
+	assume_ok(err)
+
+	fis: []os.File_Info
+	fis, err = os.read_all_directory(f, context.allocator)
+	assume_ok(err)
+
+	for fi in fis {
+		if fi.name == "dir1" {
+			found_dir1 = true
+		}
+		if fi.name == "dir2-that-actually-has-a-pretty-long-name-and-stuff" {
+			found_dir2 = true
+		}
+	}
+	assert(found_dir1)
+	assert(found_dir2)
 }
 
 _change_dirs :: proc() {
