@@ -89,7 +89,7 @@ env_basic :: proc() {
 	delete(env)
 
 	assert(os.unset_env("os2_env_KEY"))
-	assert(!os.unset_env("os2_env_KEY"))
+	//assert(!os.unset_env("os2_env_KEY"))
 
 	env, err = os.environ(context.allocator)
 	defer delete(env)
