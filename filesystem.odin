@@ -181,8 +181,10 @@ _make_dirs :: proc() {
 		assume_ok(os.remove_all("dir2-that-actually-has-a-pretty-long-name-and-stuff"))
 	}
 
-	assume_ok(os.make_directory("dir1", 0o775))
-	assume_ok(os.make_directory_all("dir2-that-actually-has-a-pretty-long-name-and-stuff/sub1/", 0o775))
+	dir_permissions := os.Permissions_Read_All | os.Permissions {.Write_User, .Execute_User, .Execute_Group, .Execute_Other}
+
+	assume_ok(os.make_directory("dir1", dir_permissions))
+	assume_ok(os.make_directory_all("dir2-that-actually-has-a-pretty-long-name-and-stuff/sub1/", dir_permissions))
 
 	/* directories are writable... */
 	f := create_write("dir1/test.txt", "hello")
@@ -190,7 +192,7 @@ _make_dirs :: proc() {
 	f = create_write("dir2-that-actually-has-a-pretty-long-name-and-stuff/sub1/test.txt", "hello")
 	os.close(f)
 
-	err := os.make_directory("dir-no-exist/sub1", 0o775)
+	err := os.make_directory("dir-no-exist/sub1", dir_permissions)
 	expect_error(err, "dir-no-exist")
 }
 

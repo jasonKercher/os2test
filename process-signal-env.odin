@@ -12,15 +12,15 @@ _gen_odin: [64]u8
 
 _run_background :: proc(program: string, desc: ^os.Process_Desc = nil, loc := #caller_location) -> (os.Process, os.Error) {
 	@static i := 0
-	fmt.bprintf(_gen_odin[:], "generated%d.odin", i)
+	src_file := fmt.bprintf(_gen_odin[:], "generated%d.odin", i)
 	i += 1
 
-	f := create_write(string(_gen_odin[:]), program)
+	f := create_write(src_file, program)
 	assume_ok(os.close(f), loc)
 
 	/* Build our program */
 	{
-		args := [?]string {"./odin", "build", string(_gen_odin[:]), "-file", "-out:generated"}
+		args := [?]string {"./odin", "build", src_file, "-file", "-out:generated"}
 		odin_build_desc := os.Process_Desc {
 			command = args[:],
 			stderr  = os.stderr,
@@ -99,7 +99,7 @@ env_basic :: proc() {
 process_env :: proc() {
 	program := `
 	package auto
-	import os "core:os/os2"
+	import "core:os"
 	main :: proc() {
 		res := 0
 		env, err := os.environ(context.allocator)
@@ -116,7 +116,7 @@ process_env :: proc() {
 	/* should inherit our new var */
 	program = `
 	package auto
-	import os "core:os/os2"
+	import "core:os"
 	main :: proc() {
 		val, found := os.lookup_env("var_to_read_in_child", context.allocator)
 		if !found { os.exit(1) }
@@ -181,9 +181,9 @@ process_pipes :: proc() {
 
 	program := `
 	package auto
-	import    "core:fmt"
-	import os "core:os/os2"
-	import    "core:sys/linux"
+	import "core:os"
+	import "core:fmt"
+	import "core:sys/linux"
 
 	main :: proc() {
 		buf: [32]u8
