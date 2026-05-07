@@ -1,8 +1,8 @@
 package os2test
 
-import    "core:time"
-import os "core:os/os2"
-import    "core:strings"
+import "core:os"
+import "core:time"
+import "core:strings"
 
 file_basic_write :: proc() {
 	f := create_write("basic.txt", "hello os2")

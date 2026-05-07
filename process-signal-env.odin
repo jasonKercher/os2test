@@ -2,11 +2,11 @@ package os2test
 
 import "base:runtime"
 
-import    "core:fmt"
-import    "core:sync"
-import    "core:time"
-import os "core:os/os2"
-import    "core:sys/linux"
+import "core:os"
+import "core:fmt"
+import "core:sync"
+import "core:time"
+import "core:sys/linux"
 
 _gen_odin: [64]u8
 

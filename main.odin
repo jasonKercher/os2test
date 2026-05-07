@@ -1,7 +1,7 @@
 package os2test
 
-import    "core:fmt"
-import os "core:os/os2"
+import "core:os"
+import "core:fmt"
 
 main :: proc() {
 	fmt.println(os.args)
